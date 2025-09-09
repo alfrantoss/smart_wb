@@ -13,7 +13,7 @@
                     </div>
                     <div class="hidden-on-mobile">
                      <?php if($user['level']=='admin'){ ?> <?= $user['nama'] ?> <?php } ?>
-					  <p style="color:green">onlineeeeeeeeeeeee</p>
+					  <p style="color:green">onlineeeeeeee</p>
                     </div>
                     <div class=" hidden-on-mobile">         
                       <?= $setting['sekolah'] ?>
