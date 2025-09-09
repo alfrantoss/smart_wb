@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Presensi QR Code</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        /* Hide browser UI elements */
+        html {
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        /* Request fullscreen on mobile */
+        @media (max-width: 768px) {
+            body {
+                -webkit-user-select: none;
+                -webkit-touch-callout: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+        
+        /* Full width responsive layout */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            align-items: stretch;
+            width: 100%;
+            min-height: calc(100vh - 120px);
+        }
+        
+        .scanner-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .info-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 100%;
+            padding: 0.5rem;
+        }
+        
+        /* Mobile portrait - stack vertically */
+        @media (max-width: 768px) and (orientation: portrait) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+        
+        /* Landscape and desktop - side by side */
+        @media (min-width: 769px), (orientation: landscape) {
+            .main-content {
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                min-height: calc(100vh - 120px);
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+        
+
+        
+        #qr-reader {
+            width: 320px;
+            height: 320px;
+            margin: 0 auto;
+            position: relative;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            box-shadow: 
+                inset 0 2px 4px rgba(59, 130, 246, 0.1),
+                0 4px 12px rgba(59, 130, 246, 0.15),
+                0 0 0 1px rgba(59, 130, 246, 0.1);
+            padding: 4px;
+            overflow: hidden;
+        }
+        
+        /* Mirror the video element inside QR reader */
+        #qr-reader video {
+            transform: scaleX(-1);
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        
+        #qr-reader::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8, #3b82f6) border-box;
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            animation: focusGlow 2s ease-in-out infinite;
+        }
+        
+        @keyframes focusGlow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+
+        
+        /* Responsive QR reader sizing */
+        @media (max-width: 768px) and (orientation: portrait) {
+            #qr-reader {
+                width: 280px;
+                height: 280px;
+            }
+        }
+        
+        @media (orientation: landscape) {
+            #qr-reader {
+                width: 250px;
+                height: 250px;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            #qr-reader {
+                width: 350px;
+                height: 350px;
+            }
+        }
+        
+        /* Scanning line animation */
+        .scan-line {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #3b82f6, #1d4ed8, #3b82f6, transparent);
+            animation: scanMove 2s ease-in-out infinite;
+            z-index: 100;
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+        }
+        
+        @keyframes scanMove {
+            0% { transform: translateY(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(308px); opacity: 0; }
+        }
+        
+        /* Responsive scan line animations */
+        @media (max-width: 768px) and (orientation: portrait) {
+            @keyframes scanMove {
+                0% { transform: translateY(0); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { transform: translateY(268px); opacity: 0; }
+            }
+        }
+        
+        @media (orientation: landscape) {
+            @keyframes scanMove {
+                0% { transform: translateY(0); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { transform: translateY(238px); opacity: 0; }
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            @keyframes scanMove {
+                0% { transform: translateY(0); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                100% { transform: translateY(338px); opacity: 0; }
+            }
+        }
+        
+        .attendance-card {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .success-flash {
+            animation: flash 0.5s ease-in-out;
+        }
+        
+        @keyframes flash {
+            0%, 100% { background-color: rgb(34, 197, 94); }
+            50% { background-color: rgb(22, 163, 74); }
+        }
+        
+        .success-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 1000;
+            text-align: center;
+            min-width: 300px;
+            animation: popupSlide 0.5s ease-out;
+        }
+        
+        @keyframes popupSlide {
+            0% { 
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0;
+            }
+            100% { 
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .checkmark {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: checkmarkBounce 0.6s ease-out;
+        }
+        
+        @keyframes checkmarkBounce {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .checkmark svg {
+            width: 30px;
+            height: 30px;
+            stroke: white;
+            stroke-width: 3;
+            fill: none;
+            stroke-dasharray: 20;
+            stroke-dashoffset: 20;
+            animation: checkmarkDraw 0.4s ease-out 0.2s forwards;
+        }
+        
+        @keyframes checkmarkDraw {
+            to { stroke-dashoffset: 0; }
+        }
+        
+        /* Blinking status indicator */
+        .status-active {
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: statusBlink 1.5s ease-in-out infinite;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+        }
+        
+        @keyframes statusBlink {
+            0%, 100% { 
+                opacity: 1; 
+                box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+            }
+            50% { 
+                opacity: 0.3; 
+                box-shadow: 0 0 15px rgba(16, 185, 129, 0.9);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container min-h-screen w-full">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="text-xl md:text-3xl font-bold text-gray-800 mb-2">📱 Sistem Presensi QR</h1>
+            <p class="text-gray-600 text-xs md:text-base">Scan QR code untuk mencatat kehadiran otomatis</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Scanner Section -->
+            <div class="scanner-section">
+                <div class="bg-white rounded-2xl shadow-xl p-3 md:p-6 mb-4 flex-1 flex flex-col justify-between">
+                    <div>
+                        <div class="text-center mb-4">
+                            <h2 class="text-lg md:text-2xl font-semibold text-gray-800 mb-2">Scanner QR Code</h2>
+                            <div class="flex items-center justify-center space-x-2 mb-4">
+                                <div id="status-indicator" class="w-3 h-3 bg-red-500 rounded-full"></div>
+                                <span id="status-text" class="text-xs md:text-sm text-gray-600">Kamera tidak aktif</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-center mb-4">
+                            <div id="qr-reader" class="relative">
+                                <div class="scan-line" id="scan-line" style="display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                        <button id="start-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed">
+                            ▶️ Mulai
+                        </button>
+                        <button id="stop-btn" class="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            ⏹️ Stop
+                        </button>
+                        <button id="fullscreen-btn" class="bg-slate-500 hover:bg-slate-600 text-white px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 w-full sm:w-auto">
+                            🔍 Full
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Section -->
+            <div class="info-section">
+                <!-- Statistics -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4 mb-4">
+                    <div class="bg-white rounded-xl shadow-lg p-3 md:p-4 text-center">
+                        <div class="text-xl md:text-3xl font-bold text-green-600" id="total-present">0</div>
+                        <div class="text-gray-600 mt-1 text-xs md:text-base">Total Hadir</div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-3 md:p-4 text-center">
+                        <div class="text-xl md:text-3xl font-bold text-blue-600" id="today-count">0</div>
+                        <div class="text-gray-600 mt-1 text-xs md:text-base">Hari Ini</div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-3 md:p-4 text-center">
+                        <div class="text-xl md:text-3xl font-bold text-purple-600" id="unique-users">0</div>
+                        <div class="text-gray-600 mt-1 text-xs md:text-base">Pengguna Unik</div>
+                    </div>
+                </div>
+
+                <!-- Recent Attendance -->
+                <div class="bg-white rounded-2xl shadow-xl p-3 md:p-6 flex-1">
+                    <h3 class="text-lg md:text-2xl font-semibold text-gray-800 mb-4">📋 Presensi Terbaru</h3>
+                    <div id="attendance-list" class="space-y-2 md:space-y-3 max-h-48 md:max-h-80 overflow-y-auto">
+                        <div class="text-center text-gray-500 py-8">
+                            Belum ada data presensi. Mulai scan QR code untuk mencatat kehadiran!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let html5QrcodeScanner;
+        let attendanceData = JSON.parse(localStorage.getItem('attendanceData')) || [];
+        
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                // Stop the stream immediately as we just needed permission
+                stream.getTracks().forEach(track => track.stop());
+                return true;
+            } catch (error) {
+                console.error("Camera permission denied:", error);
+                alert("Izin kamera diperlukan untuk menggunakan scanner QR. Silakan berikan izin kamera dan coba lagi.");
+                return false;
+            }
+        }
+        
+        async function startScanner() {
+            // Request camera permission first
+            const hasPermission = await requestCameraPermission();
+            if (!hasPermission) {
+                return;
+            }
+            
+            const config = {
+                fps: 30,
+                qrbox: { width: 350, height: 250 },
+                aspectRatio: 1.33,
+                rememberLastUsedCamera: true,
+                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+            };
+            
+            html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            
+            html5QrcodeScanner.start(
+                { facingMode: "user" },
+                config,
+                onScanSuccess,
+                onScanFailure
+            ).then(() => {
+                updateStatus(true);
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+                document.getElementById('scan-line').style.display = 'block';
+
+            }).catch(err => {
+                console.error("Error starting scanner:", err);
+                alert("Gagal memulai kamera. Pastikan izin kamera telah diberikan dan coba lagi.");
+            });
+        }
+        
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    updateStatus(false);
+                    document.getElementById('start-btn').disabled = false;
+                    document.getElementById('stop-btn').disabled = true;
+                    document.getElementById('scan-line').style.display = 'none';
+
+                }).catch(err => {
+                    console.error("Error stopping scanner:", err);
+                });
+            }
+        }
+        
+        function onScanSuccess(decodedText, decodedResult) {
+            // Process the scanned QR code
+            processAttendance(decodedText);
+            
+            // Show success feedback (only if not duplicate)
+            const today = new Date().toLocaleDateString('id-ID');
+            const existingToday = attendanceData.find(record => 
+                record.qrData === decodedText && record.date === today
+            );
+            
+            if (!existingToday) {
+                showSuccessMessage(decodedText);
+            }
+            
+            // Optional: Stop scanner after successful scan
+            // stopScanner();
+        }
+        
+        function onScanFailure(error) {
+            // Handle scan failure silently
+            // console.warn(`QR Code scan error: ${error}`);
+        }
+        
+        function processAttendance(qrData) {
+            const now = new Date();
+            const timestamp = now.toISOString();
+            const dateStr = now.toLocaleDateString('id-ID');
+            const timeStr = now.toLocaleTimeString('id-ID');
+            
+            // Check for duplicate within the same day
+            const existingToday = attendanceData.find(record => 
+                record.qrData === qrData && record.date === dateStr
+            );
+            
+            if (existingToday) {
+                showDuplicateMessage(qrData);
+                return;
+            }
+            
+            // Extract user name from QR data (assuming format: "ID|Name" or just use the data as name)
+            let userName = qrData;
+            if (qrData.includes('|')) {
+                userName = qrData.split('|')[1] || qrData;
+            }
+            
+            // Create attendance record
+            const attendanceRecord = {
+                id: Date.now(),
+                qrData: qrData,
+                userName: userName,
+                timestamp: timestamp,
+                date: dateStr,
+                time: timeStr,
+                status: 'Hadir'
+            };
+            
+            // Add to attendance data
+            attendanceData.unshift(attendanceRecord);
+            
+            // Save to localStorage
+            localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
+            
+            // Update display
+            updateAttendanceDisplay();
+            updateStatistics();
+        }
+        
+        function updateAttendanceDisplay() {
+            const attendanceList = document.getElementById('attendance-list');
+            
+            if (attendanceData.length === 0) {
+                attendanceList.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        Belum ada data presensi. Mulai scan QR code untuk mencatat kehadiran!
+                    </div>
+                `;
+                return;
+            }
+            
+            const recentAttendance = attendanceData.slice(0, 10); // Show last 10 records
+            
+            attendanceList.innerHTML = recentAttendance.map(record => `
+                <div class="attendance-card bg-gray-50 rounded-lg p-4 border-l-4 border-green-500">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-800">${record.userName || record.qrData}</div>
+                            <div class="text-xs text-gray-500">${record.qrData}</div>
+                            <div class="text-sm text-gray-600 mt-1">
+                                📅 ${record.date} • ⏰ ${record.time}
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✅ ${record.status}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateStatistics() {
+            const totalPresent = attendanceData.length;
+            const today = new Date().toLocaleDateString('id-ID');
+            const todayCount = attendanceData.filter(record => record.date === today).length;
+            const uniqueUsers = new Set(attendanceData.map(record => record.qrData)).size;
+            
+            document.getElementById('total-present').textContent = totalPresent;
+            document.getElementById('today-count').textContent = todayCount;
+            document.getElementById('unique-users').textContent = uniqueUsers;
+        }
+        
+        function updateStatus(isActive) {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            if (isActive) {
+                indicator.className = 'status-active';
+                statusText.textContent = 'Kamera aktif - Siap scan';
+            } else {
+                indicator.className = 'w-3 h-3 bg-red-500 rounded-full';
+                statusText.textContent = 'Kamera tidak aktif';
+            }
+        }
+        
+        function playSuccessSound() {
+            // Create success sound using Web Audio API
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // First beep
+            const oscillator1 = audioContext.createOscillator();
+            const gainNode1 = audioContext.createGain();
+            
+            oscillator1.connect(gainNode1);
+            gainNode1.connect(audioContext.destination);
+            
+            oscillator1.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator1.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+            
+            gainNode1.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode1.gain.linearRampToValueAtTime(0.9, audioContext.currentTime + 0.01);
+            gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator1.start(audioContext.currentTime);
+            oscillator1.stop(audioContext.currentTime + 0.3);
+            
+            // Second beep after 0.4 seconds
+            const oscillator2 = audioContext.createOscillator();
+            const gainNode2 = audioContext.createGain();
+            
+            oscillator2.connect(gainNode2);
+            gainNode2.connect(audioContext.destination);
+            
+            oscillator2.frequency.setValueAtTime(800, audioContext.currentTime + 0.4);
+            oscillator2.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.5);
+            
+            gainNode2.gain.setValueAtTime(0, audioContext.currentTime + 0.4);
+            gainNode2.gain.linearRampToValueAtTime(0.9, audioContext.currentTime + 0.41);
+            gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.7);
+            
+            oscillator2.start(audioContext.currentTime + 0.4);
+            oscillator2.stop(audioContext.currentTime + 0.7);
+        }
+        
+        function showSuccessMessage(qrData) {
+            // Play success sound
+            try {
+                playSuccessSound();
+            } catch (error) {
+                console.log('Audio not supported');
+            }
+            
+            // Extract user name
+            let userName = qrData;
+            if (qrData.includes('|')) {
+                userName = qrData.split('|')[1] || qrData;
+            }
+            
+            // Create success popup in center
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-popup';
+            successDiv.innerHTML = `
+                <div class="checkmark">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Berhasil Presensi!</h3>
+                <p class="text-green-100 font-medium">${userName}</p>
+                <p class="text-green-200 text-sm mt-1">Presensi berhasil dicatat</p>
+            `;
+            
+            document.body.appendChild(successDiv);
+            
+            // Remove after 2 seconds
+            setTimeout(() => {
+                successDiv.style.animation = 'popupSlide 0.3s ease-in reverse';
+                setTimeout(() => {
+                    successDiv.remove();
+                }, 300);
+            }, 2000);
+        }
+        
+        function showDuplicateMessage(qrData) {
+            // Play success sound for duplicate too
+            try {
+                playSuccessSound();
+            } catch (error) {
+                console.log('Audio not supported');
+            }
+            
+            // Extract user name
+            let userName = qrData;
+            if (qrData.includes('|')) {
+                userName = qrData.split('|')[1] || qrData;
+            }
+            
+            // Create duplicate popup
+            const duplicateDiv = document.createElement('div');
+            duplicateDiv.className = 'success-popup';
+            duplicateDiv.innerHTML = `
+                <div class="checkmark">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M9 12l2 2 4-4" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20" stroke-dashoffset="20" style="animation: checkmarkDraw 0.4s ease-out 0.2s forwards;"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Berhasil Presensi!</h3>
+                <p class="text-green-100 font-medium">${userName}</p>
+                <p class="text-green-200 text-sm mt-1">Anda sudah melakukan presensi hari ini</p>
+            `;
+            
+            document.body.appendChild(duplicateDiv);
+            
+            // Remove after 2 seconds
+            setTimeout(() => {
+                duplicateDiv.style.animation = 'popupSlide 0.3s ease-in reverse';
+                setTimeout(() => {
+                    duplicateDiv.remove();
+                }, 300);
+            }, 2000);
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    document.getElementById('fullscreen-btn').textContent = '🔙 Keluar';
+                    // Hide address bar on mobile
+                    setTimeout(() => {
+                        window.scrollTo(0, 1);
+                    }, 100);
+                }).catch(err => {
+                    console.log('Fullscreen not supported');
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    document.getElementById('fullscreen-btn').textContent = '🔍 Full';
+                });
+            }
+        }
+        
+        // Screen wake lock functionality
+        let wakeLock = null;
+        
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen wake lock activated');
+                }
+            } catch (err) {
+                console.log('Wake lock not supported or failed:', err);
+            }
+        }
+        
+        // Auto fullscreen and start camera on load
+        async function initializeApp() {
+            // Request fullscreen
+            try {
+                await document.documentElement.requestFullscreen();
+                document.getElementById('fullscreen-btn').textContent = '🔙 Keluar';
+            } catch (err) {
+                console.log('Fullscreen not supported');
+            }
+            
+            // Request wake lock
+            await requestWakeLock();
+            
+            // Auto start scanner
+            setTimeout(() => {
+                startScanner();
+            }, 1000);
+        }
+        
+        // Event listeners
+        document.getElementById('start-btn').addEventListener('click', startScanner);
+        document.getElementById('stop-btn').addEventListener('click', stopScanner);
+        document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+        
+        // Initialize display
+        updateAttendanceDisplay();
+        updateStatistics();
+        
+        // Auto-refresh statistics every 30 seconds
+        setInterval(updateStatistics, 30000);
+        
+        // Initialize app when page loads
+        window.addEventListener('load', initializeApp);
+        
+        // Re-request wake lock when visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && wakeLock === null) {
+                requestWakeLock();
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967f72b9f72f6d1c',t:'MTc1Mzk4OTU3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
